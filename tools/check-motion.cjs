@@ -20,9 +20,16 @@ async function run() {
     await page.goto(pathToFileURL('app/src/main/assets/index.html').href);
     const canvas = page.locator('#motionCanvas');
     await canvas.waitFor();
-    const pixels = () => canvas.evaluate(element => element.toDataURL());
+    const pixels = async () => (await canvas.screenshot()).toString('base64');
+    async function waitForMotion(previous) {
+      for (let attempt = 0; attempt < 15; attempt++) {
+        if (await pixels() !== previous) return;
+        await page.waitForTimeout(120);
+      }
+      assert.fail('The exercise frame did not advance');
+    }
     const initial = await pixels();
-    await page.waitForFunction(previous => document.querySelector('#motionCanvas').toDataURL() !== previous, initial);
+    await waitForMotion(initial);
     await page.screenshot({path: 'motion-qa/start-screen.png'});
     await page.locator('#modelToggle').click();
     const frozen = await pixels();
@@ -42,7 +49,7 @@ async function run() {
       }
       const still = await pixels();
       await page.locator('#modelToggle').click();
-      await page.waitForFunction(previous => document.querySelector('#motionCanvas').toDataURL() !== previous, still);
+      await waitForMotion(still);
       await page.locator('#modelToggle').click();
       await page.locator('#modelRestart').click();
       assert.equal(await pixels(), still);

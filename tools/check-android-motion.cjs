@@ -48,24 +48,27 @@ async function run() {
       socket.addEventListener('open', resolve, {once: true});
       socket.addEventListener('error', reject, {once: true});
     });
-    const evaluate = expression => new Promise((resolve, reject) => {
+    const request = (method, params) => new Promise((resolve, reject) => {
       const id = ++nextId;
       requests.set(id, message => {
-        if (message.error || message.result.exceptionDetails) {
-          reject(new Error(JSON.stringify(message.error || message.result.exceptionDetails)));
+        if (message.error || message.result?.exceptionDetails) {
+          reject(new Error(JSON.stringify(message.error || message.result?.exceptionDetails)));
         } else {
-          resolve(message.result.result.value);
+          resolve(message.result);
         }
       });
-      socket.send(JSON.stringify({id, method: 'Runtime.evaluate', params: {expression, returnByValue: true}}));
+      socket.send(JSON.stringify({id, method, params}));
     });
+    const evaluate = async expression => (await request('Runtime.evaluate', {expression, returnByValue: true})).result.value;
     mkdirSync('android-motion-qa', {recursive: true});
     for (const exercise of ['squat', 'wall', 'bridge']) {
       await evaluate(`document.querySelector('[data-exercise="${exercise}"]').click()`);
-      const readFrame = () => evaluate(`(() => {
-        const canvas = document.querySelector('#motionCanvas');
-        return canvas.hidden ? null : canvas.toDataURL();
-      })()`);
+      const readFrame = async () => {
+        assert(await evaluate('!document.querySelector("#motionCanvas").hidden'));
+        const screenshot = await request('Page.captureScreenshot', {format: 'png'});
+        assert(screenshot.data);
+        return screenshot.data;
+      };
       const first = await retry(async () => {
         const frame = await readFrame();
         assert(frame);
