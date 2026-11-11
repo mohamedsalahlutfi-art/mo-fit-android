@@ -61,6 +61,12 @@ async function run() {
     });
     const evaluate = async expression => (await request('Runtime.evaluate', {expression, returnByValue: true})).result.value;
     mkdirSync('android-motion-qa', {recursive: true});
+    await retry(async () => {
+      const ready = await evaluate(`document.readyState === 'complete' &&
+        !!document.querySelector('[data-exercise="squat"]') &&
+        document.querySelector('#motionCanvas').hidden === false`);
+      assert(ready, 'The Android motion screen did not finish loading');
+    });
     for (const exercise of ['squat', 'wall', 'bridge']) {
       await evaluate(`document.querySelector('[data-exercise="${exercise}"]').click()`);
       const readFrame = async () => {
