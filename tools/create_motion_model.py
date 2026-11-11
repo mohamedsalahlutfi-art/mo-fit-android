@@ -30,7 +30,7 @@ def joints(kind, t):
         hip = offset(neck, y=.52*math.sin(pitch), z=.52*math.cos(pitch))
         head = offset(neck, y=-.045, z=-.16)
     elif kind == 'wall':
-        angle = math.radians(9 + 10*t)
+        angle = math.radians(7.5 + 11.5*t)
         hip = v(0, .10+.89*math.cos(angle), .89*math.sin(angle))
         neck = offset(hip, y=.52*math.cos(angle), z=.52*math.sin(angle))
         head = offset(neck, y=.16*math.cos(angle), z=.16*math.sin(angle))
@@ -57,8 +57,12 @@ def joints(kind, t):
             wrist = v(side*.242, 1.35, .735)
             elbow = two_link(shoulder, wrist, .285, .273, v(side*.52,-1,0))
             fingers = offset(wrist, y=.112, z=.018)
+        elif kind == 'rest':
+            elbow = offset(shoulder, x=side*.145, y=-.245)
+            wrist = offset(elbow, x=side*.137, y=-.236)
+            fingers = offset(wrist, x=side*.055, y=-.095)
         else:
-            angle = math.radians(76*t if kind == 'squat' else 0)
+            angle = math.radians(76*t)
             elbow = offset(shoulder, x=side*.039, y=-.282*math.cos(angle), z=.282*math.sin(angle))
             wrist = offset(elbow, x=side*.018, y=-.272*math.cos(angle+.08), z=.272*math.sin(angle+.08))
             fingers = offset(wrist, y=-.11*math.cos(angle), z=.11*math.sin(angle))
@@ -140,13 +144,31 @@ bpy.ops.object.mode_set(mode='OBJECT')
 groups = {name: mesh.vertex_groups.new(name=name) for name in rest}
 for vertex in mesh.data.vertices:
     scores = []
-    for name, (head, tail) in rest.items():
+    x, _, y = vertex.co
+    side = 1 if x >= 0 else -1
+    arm = [f'{name}_{side}' for name in ('upper_arm', 'forearm', 'hand')]
+    leg = [f'{name}_{side}' for name in ('thigh', 'shin', 'foot')]
+    shoulder_boundary = .20 + max(0, 1.36-y)*.46
+    if abs(x) > shoulder_boundary:
+        candidates = arm + (['torso'] if y > 1.31 else [])
+    elif y < .91:
+        candidates = leg
+    else:
+        candidates = ['torso']
+        if y > 1.45:
+            candidates.append('head')
+        if y < 1.09:
+            candidates.append(leg[0])
+        if y > 1.30 and abs(x) > .135:
+            candidates.append(arm[0])
+    for name in candidates:
+        head, tail = rest[name]
         axis = tail - head
         factor = max(0, min(1, (vertex.co-head).dot(axis)/axis.length_squared))
         distance = (vertex.co-head-axis*factor).length_squared
         scores.append((distance, name))
     nearest = sorted(scores)[:3]
-    weights = [(name, math.exp(-(distance-nearest[0][0])/.003))
+    weights = [(name, math.exp(-(distance-nearest[0][0])/.0018))
                for distance, name in nearest]
     total = sum(weight for _, weight in weights)
     for name, weight in weights:

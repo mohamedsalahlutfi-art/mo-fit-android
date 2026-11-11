@@ -84,16 +84,16 @@ jobs:
       - name: Verify APK signature and package contents
         run: |
           set -euo pipefail
-          cp app/build/outputs/apk/debug/app-debug.apk MO-FIT-v0.7.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify MO-FIT-v0.7.apk
-          unzip -t MO-FIT-v0.7.apk
-          unzip -Z1 MO-FIT-v0.7.apk | grep -Fx 'assets/motion-viewer.js'
+          cp app/build/outputs/apk/debug/app-debug.apk MO-FIT-v0.7.1.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify MO-FIT-v0.7.1.apk
+          unzip -t MO-FIT-v0.7.1.apk
+          unzip -Z1 MO-FIT-v0.7.1.apk | grep -Fx 'assets/motion-viewer.js'
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MO-FIT-v0.7-APK
-          path: MO-FIT-v0.7.apk
+          name: MO-FIT-v0.7.1-APK
+          path: MO-FIT-v0.7.1.apk
           if-no-files-found: error
 
   publish:
@@ -105,19 +105,19 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: MO-FIT-v0.7-APK
+          name: MO-FIT-v0.7.1-APK
       - name: Publish direct-download preview
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: v0.7.0-motion-preview
+          RELEASE_TAG: v0.7.1-motion-preview
         run: |
           set -euo pipefail
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" MO-FIT-v0.7.apk --clobber
+            gh release upload "$RELEASE_TAG" MO-FIT-v0.7.1.apk --clobber
           else
-            gh release create "$RELEASE_TAG" MO-FIT-v0.7.apk \
+            gh release create "$RELEASE_TAG" MO-FIT-v0.7.1.apk \
               --target "$GITHUB_SHA" --prerelease \
-              --title "MO FIT v0.7.0 Motion Preview" \
+              --title "MO FIT v0.7.1 Motion Preview" \
               --notes "Android debug APK with an offline 3D mannequin and three preview exercise clips. Device and movement review are pending."
           fi

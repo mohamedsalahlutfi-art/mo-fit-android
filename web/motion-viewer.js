@@ -53,7 +53,7 @@ for (const x of [-.23, .23]) {
 chair.add(box(.50, .13, .045, 0, .70, -.65, seatMaterial));
 const wall = box(1.16, 1.68, .035, 0, .84, .793,
   new MeshStandardMaterial({ color: 0x59acb0, transparent: true, opacity: .17, depthWrite: false }));
-scene.add(chair, wall, new GridHelper(9, 36, 0x355068, 0x24394d));
+scene.add(chair, wall, new GridHelper(5, 20, 0x355068, 0x24394d));
 scene.add(new AmbientLight(0xc3e2f4, 1.6));
 const key = new DirectionalLight(0xfff1d9, 2.4);
 key.position.set(3, 6, 4);
@@ -74,7 +74,7 @@ function render() {
   camera.near = .1;
   camera.far = 15;
   target.set(0, bridge ? .39 : .88, bridge ? .06 : .07);
-  camera.position.copy(target).add(new Vector3(3.6 * Math.sin(angle), bridge ? 1.08 : .95, 3.6 * Math.cos(angle)));
+  camera.position.copy(target).add(new Vector3(3.6 * Math.sin(angle), bridge ? 1.8 : .95, 3.6 * Math.cos(angle)));
   camera.lookAt(target);
   camera.updateProjectionMatrix();
   renderer.setSize(width, height, false);
