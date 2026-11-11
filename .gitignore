@@ -1,0 +1,14 @@
+.gradle/
+.idea/
+*.iml
+local.properties
+**/build/
+*.apk
+*.aab
+*.jks
+*.keystore
+.DS_Store
+
+/node_modules/
+/app/src/main/assets/motion-viewer.js
+/motion-qa/

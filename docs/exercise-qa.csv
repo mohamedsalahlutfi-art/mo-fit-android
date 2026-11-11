@@ -1,0 +1,4 @@
+exercise_id,source_url,model_asset,animation_asset,joints_reviewed,front_view_verified,side_view_verified,play_pause_verified,offline_verified,device_test,status,evidence_path
+squat,https://www.nhs.uk/live-well/exercise/strength-exercises/,motion-model.glb,squat,hips/knees/ankles via fixed-length joint trajectories,pending,pending,pending,pending,pending,preview,Motion QA artifact from GitHub Actions
+wall,https://www.nhs.uk/live-well/exercise/strength-exercises/,motion-model.glb,wall,shoulders/elbows/wrists via fixed-length joint trajectories,pending,pending,pending,pending,pending,preview,Motion QA artifact from GitHub Actions
+bridge,https://www.nth.nhs.uk/resources/lower-limb-exercise-and-education/,motion-model.glb,bridge,hips/knees/ankles via fixed-length joint trajectories,pending,pending,pending,pending,pending,preview,Motion QA artifact from GitHub Actions
