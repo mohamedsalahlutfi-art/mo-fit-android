@@ -32,7 +32,7 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - name: Bundle the offline 3D viewer
+      - name: Bundle the offline motion player
         run: |
           npm ci
           npm run build
@@ -84,20 +84,57 @@ jobs:
       - name: Verify APK signature and package contents
         run: |
           set -euo pipefail
-          cp app/build/outputs/apk/debug/app-debug.apk MO-FIT-v0.7.1.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify MO-FIT-v0.7.1.apk
-          unzip -t MO-FIT-v0.7.1.apk
-          unzip -Z1 MO-FIT-v0.7.1.apk | grep -Fx 'assets/motion-viewer.js'
+          cp app/build/outputs/apk/debug/app-debug.apk MO-FIT-v0.7.2.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify MO-FIT-v0.7.2.apk
+          unzip -t MO-FIT-v0.7.2.apk
+          unzip -Z1 MO-FIT-v0.7.2.apk | grep -Fx 'assets/motion-viewer.js'
+          for exercise in squat wall bridge; do
+            for view in front side three; do
+              unzip -Z1 MO-FIT-v0.7.2.apk | grep -Fx "assets/motion/${exercise}-${view}.webp"
+            done
+          done
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MO-FIT-v0.7.1-APK
-          path: MO-FIT-v0.7.1.apk
+          name: MO-FIT-v0.7.2-APK
+          path: MO-FIT-v0.7.2.apk
+          if-no-files-found: error
+
+  android-smoke:
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: MO-FIT-v0.7.2-APK
+      - name: Enable hardware acceleration for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install and open the APK offline
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: node tools/check-android-motion.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-Motion-QA
+          path: android-motion-qa/
           if-no-files-found: error
 
   publish:
-    needs: android
+    needs: [android, android-smoke]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -105,19 +142,19 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: MO-FIT-v0.7.1-APK
+          name: MO-FIT-v0.7.2-APK
       - name: Publish direct-download preview
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: v0.7.1-motion-preview
+          RELEASE_TAG: v0.7.2-motion-preview
         run: |
           set -euo pipefail
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" MO-FIT-v0.7.1.apk --clobber
+            gh release upload "$RELEASE_TAG" MO-FIT-v0.7.2.apk --clobber
           else
-            gh release create "$RELEASE_TAG" MO-FIT-v0.7.1.apk \
+            gh release create "$RELEASE_TAG" MO-FIT-v0.7.2.apk \
               --target "$GITHUB_SHA" --prerelease \
-              --title "MO FIT v0.7.1 Motion Preview" \
-              --notes "Android debug APK with an offline 3D mannequin and three preview exercise clips. Device and movement review are pending."
+              --title "MO FIT v0.7.2 Motion Preview" \
+              --notes "Android debug APK with an three offline motion exercises rendered from the 3D rig. Playback tested on an offline Android emulator. Movement review and physical device coverage are pending."
           fi

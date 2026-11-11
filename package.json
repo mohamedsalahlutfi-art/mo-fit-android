@@ -4,9 +4,6 @@
   "scripts": {
     "build": "esbuild web/motion-viewer.js --bundle --minify --loader:.glb=binary --legal-comments=eof --outfile=app/src/main/assets/motion-viewer.js"
   },
-  "dependencies": {
-    "three": "0.180.0"
-  },
   "devDependencies": {
     "esbuild": "0.25.12",
     "playwright": "1.56.1"

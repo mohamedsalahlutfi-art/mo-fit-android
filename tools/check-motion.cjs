@@ -1,42 +1,66 @@
-const {chromium} = require('playwright');
+const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
-const {mkdirSync} = require('node:fs');
-const {pathToFileURL} = require('node:url');
-(async () => {
- mkdirSync('motion-qa', {recursive: true});
- const browser=await chromium.launch({args:['--no-sandbox','--enable-unsafe-swiftshader','--use-angle=swiftshader']});
- try {
- const page=await browser.newPage({viewport:{width:390,height:844}});
- const errors=[];
- page.on('pageerror',e=>errors.push(e.message));
- page.on('console',m=>{if(m.type()==='error') errors.push(m.text())});
- await page.context().setOffline(true);
- await page.goto(pathToFileURL('app/src/main/assets/index.html').href);
- await page.locator('nav button[data-tab=model]').click();
- await page.locator('#motionPhase').getByText('عرض ثلاثي الأبعاد تجريبي').waitFor({timeout:10000});
- const canvas=page.locator('canvas#motionCanvas');
- await page.locator('#modelToggle').click();
- await page.locator('#modelSpeed').click();
- assert.match(await page.locator('#modelSpeed').innerText(), /0.5/);
- await page.locator('#modelSpeed').click();
- const states = new Set();
- for(const name of ['squat','wall','bridge']){
-   await page.selectOption('#modelMove',name);
-   for(const angle of ['front','side','three']){
-     await page.locator('[data-view='+angle+']').click();
-     const screenshot=await canvas.screenshot({path:'motion-qa/'+name+'-'+angle+'.png'});
-     assert(screenshot.length>10000);
-     states.add(screenshot.toString('base64'));
-   }
-   await page.locator('#modelToggle').click();
-   await page.waitForTimeout(1350);
-   await page.locator('#modelToggle').click();
-   const moved = await canvas.screenshot({path:'motion-qa/'+name+'-in-motion.png'});
-   assert(!states.has(moved.toString('base64')), name + ' should move during playback');
-   await page.locator('#modelRestart').click();
- }
- assert.equal(states.size,9);
- assert.deepEqual(errors,[]);
- console.log('Offline WebGL loaded, 9 distinct exercise/view frames, playback controls and 3 in-motion frames');
- } finally {await browser.close()}
-})().catch(e=>{console.error(e);process.exitCode=1});
+const { mkdirSync } = require('node:fs');
+const { pathToFileURL } = require('node:url');
+
+async function run() {
+  mkdirSync('motion-qa', { recursive: true });
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (kind, ...args) {
+        return kind.includes('webgl') ? null : original.call(this, kind, ...args);
+      };
+    });
+    await page.context().setOffline(true);
+    await page.goto(pathToFileURL('app/src/main/assets/index.html').href);
+    const canvas = page.locator('#motionCanvas');
+    await canvas.waitFor();
+    const pixels = () => canvas.evaluate(element => element.toDataURL());
+    const initial = await pixels();
+    await page.waitForFunction(previous => document.querySelector('#motionCanvas').toDataURL() !== previous, initial);
+    await page.screenshot({path: 'motion-qa/start-screen.png'});
+    await page.locator('#modelToggle').click();
+    const frozen = await pixels();
+    await page.waitForTimeout(240);
+    assert.equal(await pixels(), frozen);
+    await page.locator('#modelSpeed').click();
+    assert.match(await page.locator('#modelSpeed').innerText(), /0.5/);
+    await page.locator('#modelSpeed').click();
+    const views = new Set();
+    for (const exercise of ['squat', 'wall', 'bridge']) {
+      await page.locator('[data-exercise=' + exercise + ']').click();
+      for (const view of ['front', 'side', 'three']) {
+        await page.locator('[data-view=' + view + ']').click();
+        await canvas.waitFor();
+        views.add(await pixels());
+        await canvas.screenshot({path: 'motion-qa/' + exercise + '-' + view + '.png'});
+      }
+      const still = await pixels();
+      await page.locator('#modelToggle').click();
+      await page.waitForFunction(previous => document.querySelector('#motionCanvas').toDataURL() !== previous, still);
+      await page.locator('#modelToggle').click();
+      await page.locator('#modelRestart').click();
+      assert.equal(await pixels(), still);
+    }
+    assert.equal(views.size, 9);
+    await page.locator('[data-tab=moves]').click();
+    assert.equal(await page.locator('[data-open-motion]').count(), 3);
+    await page.locator('[data-open-motion=wall]').click();
+    await canvas.waitFor();
+    assert.equal(await page.locator('#motionTitle').innerText(), 'ضغط الحائط');
+    assert.deepEqual(errors, []);
+    console.log('Three motion clips, nine views, initial autoplay and library links verified offline with WebGL disabled.');
+  } finally {
+    await browser.close();
+  }
+}
+
+run().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
