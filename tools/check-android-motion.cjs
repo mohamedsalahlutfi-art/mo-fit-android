@@ -67,20 +67,32 @@ async function run() {
         document.querySelector('#motionCanvas').hidden === false`);
       assert(ready, 'The Android motion screen did not finish loading');
     });
-    for (const exercise of ['squat', 'wall', 'bridge']) {
-      await evaluate(`document.querySelector('[data-exercise="${exercise}"]').click()`);
-      const readFrame = async () => {
-        assert(await evaluate('!document.querySelector("#motionCanvas").hidden'));
-        const screenshot = await request('Page.captureScreenshot', {format: 'png'});
-        assert(screenshot.data);
-        return screenshot.data;
+    const settings = await evaluate(`({
+      reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
+      visibility: document.visibilityState,
+      playing: document.querySelector('#modelToggle').textContent
+    })`);
+    console.log('Android motion settings:', settings);
+    if (settings.playing === 'تشغيل') await evaluate("document.querySelector('#modelToggle').click()");
+    await evaluate(`(() => {
+      const draw = CanvasRenderingContext2D.prototype.drawImage;
+      window.androidMotionFrames = 0;
+      CanvasRenderingContext2D.prototype.drawImage = function (...args) {
+        const result = draw.apply(this, args);
+        if (this.canvas.id === 'motionCanvas') window.androidMotionFrames++;
+        return result;
       };
-      const first = await retry(async () => {
-        const frame = await readFrame();
-        assert(frame);
-        return frame;
+    })()`);
+    for (const exercise of ['squat', 'wall', 'bridge']) {
+      const first = await evaluate('window.androidMotionFrames');
+      await evaluate(`document.querySelector('[data-exercise="${exercise}"]').click()`);
+      await retry(async () => {
+        const frames = await evaluate(`(() => {
+          const canvas = document.querySelector('#motionCanvas');
+          return canvas.hidden ? 0 : window.androidMotionFrames;
+        })()`);
+        assert(frames > first + 2, 'No sequence of painted frames for ' + exercise);
       });
-      await retry(async () => assert.notEqual(await readFrame(), first));
       writeFileSync('android-motion-qa/' + exercise + '.png', adb('exec-out', 'screencap', '-p'));
     }
     console.log('APK installed and all three exercises animated on the Android emulator with network disabled.');

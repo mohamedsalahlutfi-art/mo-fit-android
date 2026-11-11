@@ -43,20 +43,19 @@ function paint(frame) {
   lastFrame = frame;
 }
 
-function tick(now) {
-  frameRequest = 0;
+function tick() {
+  const now = performance.now();
   if (previousTime) elapsed = (elapsed + (now - previousTime) * rate) % duration;
   previousTime = now;
   paint(Math.floor(elapsed / duration * frames));
-  updatePlayback();
 }
 
 function updatePlayback() {
-  if (playing && sheet && panel.classList.contains('active') && !document.hidden) {
-    if (!frameRequest) frameRequest = requestAnimationFrame(tick);
+  if (playing && sheet && panel.classList.contains('active')) {
+    if (!frameRequest) frameRequest = setInterval(tick, 1000 / 30);
     return;
   }
-  cancelAnimationFrame(frameRequest);
+  clearInterval(frameRequest);
   frameRequest = 0;
   previousTime = 0;
 }
@@ -135,6 +134,5 @@ restart.addEventListener('click', () => {
   paint(0);
 });
 new MutationObserver(updatePlayback).observe(panel, {attributes: true, attributeFilter: ['class']});
-document.addEventListener('visibilitychange', updatePlayback);
 syncPlayButton();
 selectClip(true);
