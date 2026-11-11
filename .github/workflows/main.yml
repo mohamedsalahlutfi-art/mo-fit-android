@@ -30,10 +30,17 @@ jobs:
           unzip -oq MO-FIT-Android-v0.6-GitHub.zip -d android-project
           find android-project -maxdepth 3 -type f | sort | head -40
           test -f android-project/settings.gradle
-          test -f android-project/build.gradle
           test -f android-project/app/build.gradle
           test -f android-project/app/src/main/AndroidManifest.xml
           test -f android-project/app/src/main/assets/index.html
+
+      - name: Configure Android Gradle Plugin
+        run: |
+          cat > android-project/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
 
       - name: Java 17
         uses: actions/setup-java@v4
